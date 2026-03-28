@@ -110,7 +110,7 @@ int baseSpeed      = 150;   // Forward speed (80-255)
 int turnSpeed      = 100;   // Turning speed (60-200)
 int slowSpeed      = 90;    // Near-wall speed (50-120)
 int TURN_DISTANCE  = 15;    // cm — slow down threshold
-int STOP_DISTANCE  = 8;     // cm — stop threshold
+int STOP_DISTANCE  = 10;    // cm — stop threshold
 int roomExitTime   = 800;   // ms — clear room marker
 int clapWaitTime   = 5000;  // ms — listen duration
 int buzzerDuration = 2000;  // ms — arrival buzzer
@@ -193,7 +193,9 @@ void followLine() {
 
   if (dist < STOP_DISTANCE) {
     stopMotors();
+    ledRed();  // Red LED = obstacle warning
     while (getDistance() < STOP_DISTANCE) delay(100);
+    ledOff();
     delay(200);
     return;
   }
@@ -298,7 +300,7 @@ const CONFIG_DATA = {
     { name: "turnSpeed", value: "100", range: "60–200", desc: "Turning correction speed" },
     { name: "slowSpeed", value: "90", range: "50–120", desc: "Near-wall speed" },
     { name: "TURN_DISTANCE", value: "15", range: "10–20 cm", desc: "Slow down threshold" },
-    { name: "STOP_DISTANCE", value: "8", range: "5–12 cm", desc: "Full stop threshold" },
+    { name: "STOP_DISTANCE", value: "10", range: "5–15 cm", desc: "Obstacle stop threshold (object < 10cm = stop)" },
     { name: "roomExitTime", value: "800", range: "600–1200 ms", desc: "Drive time to clear marker" },
     { name: "clapWaitTime", value: "5000", range: "3000–8000 ms", desc: "Listen duration for clap" },
   ],

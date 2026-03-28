@@ -38,7 +38,7 @@ int turnSpeed      = 100;    // Speed for turning corrections (60–200)
 int slowSpeed      = 90;     // Reduced speed near walls (50–120)
 
 int TURN_DISTANCE  = 15;     // cm — slow down within this distance
-int STOP_DISTANCE  = 8;      // cm — stop if obstacle closer than this
+int STOP_DISTANCE  = 10;     // cm — stop if obstacle closer than this
 
 int roomExitTime   = 800;    // ms — how long to drive forward after room marker
                               //       to clear the marker. Tune: 600–1200
@@ -200,12 +200,22 @@ void followLine() {
   long dist = getDistance();
 
   if (dist < STOP_DISTANCE) {
-    // ── OBSTACLE DETECTED — Stop and wait ──
+    // ── OBSTACLE DETECTED (< 10cm) — Stop and wait ──
     stopMotors();
+    ledRed();  // Red LED = obstacle warning
+    Serial.print("[OBSTACLE] Stopped! Distance: ");
+    Serial.print(dist);
+    Serial.println(" cm");
+
+    // Wait until object is removed (distance > 10cm)
     while (getDistance() < STOP_DISTANCE) {
-      delay(100);  // Wait until clear
+      delay(100);  // Re-check every 100ms
     }
-    delay(200);  // Small settling delay
+
+    // Object removed — resume
+    ledOff();
+    Serial.println("[CLEAR] Obstacle removed — resuming");
+    delay(200);  // Small settling delay before moving
     return;
   }
 

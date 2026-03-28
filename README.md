@@ -6,7 +6,7 @@ Smart Hospital Request & Alert System
   In many hospitals, communication between patient rooms and staff is inefficient, leading to
   delays  in response and poor prioritization of requests.
 
- * Proposed Solution
+ * Proposed Solution:
 
    This project presents a Smart Hospital Request System that:
 
@@ -15,8 +15,8 @@ Smart Hospital Request & Alert System
    Uses a line-following robot to visually represent workflow
    Alerts staff using buzzer and LED indicators.
 
-  * System Architecture
-   Input Layer:
+  * System Architecture:
+   Input Layer
    Switch (request trigger)
    PIR sensor (presence validation)
    IR sensors (line tracking)
@@ -28,7 +28,7 @@ Smart Hospital Request & Alert System
    Buzzer (alert system)
    LED (status indication)
 
- * Working Principle
+ * Working Principle:
    Request Detection
    User presses switch
    PIR sensor confirms presence
@@ -43,13 +43,13 @@ Smart Hospital Request & Alert System
    Buzzer beeps based on number of requests
    LED indicates system status
 
- * Features
+ * Features:
    Request validation using motion detection
    Automated guided workflow visualization
    Real-time alert system using buzzer patterns
    Low-cost and easy-to-implement design
 
-  * Components Used
+  * Components Used:
    Arduino UNO
    IR Sensors (Line Following)
    L298N Motor Driver
@@ -61,18 +61,18 @@ Smart Hospital Request & Alert System
    Switch
    3.7V Batteries (2x)
 
- * Expected Output
+ * Expected Output:
    Accurate detection of valid requests
    Smooth robot navigation along predefined path
    Real-time alert using buzzer and LED
    Improved efficiency in request handling
 
-* Future Improvements
+* Future Improvements:
   Integration with IoT dashboard
   Mobile app notifications
   Multi-room scalable system
   AI-based prioritization
 
- * Conclusion
+ * Conclusion:
 
   This system demonstrates how simple embedded systems combined with basic automation can          significantly improve hospital communication efficiency and response time

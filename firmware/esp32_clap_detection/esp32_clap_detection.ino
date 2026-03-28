@@ -1,26 +1,22 @@
 /*
  * ═══════════════════════════════════════════════════════
- *  ESP32 CLAP DETECTION — INMP441 I2S Microphone
- *  MedBot Healthcare Delivery Robot
+ * ESP32 CLAP DETECTION — INMP441 I2S Microphone
+ * Omnitrix Healthcare Delivery Robot (Stealth Mode)
  * ═══════════════════════════════════════════════════════
  *
- *  Hardware:
- *    - ESP32 Dev Board
- *    - INMP441 I2S MEMS Microphone
+ * Wiring:
+ * INMP441    →  ESP32
+ * ────────────────────
+ * WS         →  GPIO 25
+ * SCK        →  GPIO 26
+ * SD         →  GPIO 27
+ * L/R        →  GND (left channel)
+ * VDD        →  3.3V  (CRITICAL: DO NOT USE 5V)
+ * GND        →  GND
  *
- *  Wiring:
- *    INMP441    →  ESP32
- *    ────────────────────
- *    WS         →  GPIO 25
- *    SCK        →  GPIO 26
- *    SD         →  GPIO 27
- *    L/R        →  GND (left channel)
- *    VDD        →  3.3V
- *    GND        →  GND
- *
- *  Output:
- *    Sends '1' via Serial (115200) when clap detected
- *    Arduino UNO listens on its Serial for this signal
+ * Output:
+ * Sends '1' via Serial (115200) when clap detected.
+ * All debug text is commented out for final hardware integration.
  */
 
 #include <driver/i2s.h>
@@ -129,20 +125,16 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
+  // NOTE: Startup text is commented out for the final run 
+  // to prevent confusing the Arduino over the RX/TX lines.
+  /*
   Serial.println("═══════════════════════════════════════");
   Serial.println("  ESP32 Clap Detector — INMP441 I2S");
-  Serial.println("  MedBot Healthcare Robot");
+  Serial.println("  Omnitrix Healthcare Robot");
   Serial.println("═══════════════════════════════════════");
-  Serial.print("  Threshold: ");
-  Serial.println(CLAP_THRESHOLD);
-  Serial.print("  Debounce:  ");
-  Serial.print(DEBOUNCE_MS);
-  Serial.println(" ms");
-  Serial.println("═══════════════════════════════════════");
+  */
 
   setupI2S();
-
-  Serial.println("[READY] Listening for claps...");
 }
 
 // ═══════════════════════════════════════════
@@ -153,7 +145,7 @@ void loop() {
   // Get peak amplitude from current audio buffer
   int32_t amplitude = getPeakAmplitude();
 
-  // ── DEBUG: Uncomment to see live amplitude values ──
+  // ── DEBUG: Uncomment ONLY when testing while plugged into your laptop via USB ──
   // Serial.print("AMP: ");
   // Serial.println(amplitude);
 
@@ -165,12 +157,12 @@ void loop() {
     if (now - lastClapTime > DEBOUNCE_MS) {
       lastClapTime = now;
 
-      // ═══ CLAP DETECTED — Send signal to Arduino ═══
-      Serial.println("1");
+      // ═══ CLAP DETECTED — Send ONLY the '1' character to Arduino ═══
+      Serial.print('1');
 
-      // Debug output
-      Serial.print("[CLAP] Detected! Amplitude: ");
-      Serial.println(amplitude);
+      // Debug output is commented out for the final run
+      // Serial.print("[CLAP] Detected! Amplitude: ");
+      // Serial.println(amplitude);
     }
   }
 }

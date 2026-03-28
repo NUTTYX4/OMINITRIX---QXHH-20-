@@ -1,16 +1,24 @@
 import { useState } from "react";
 
 const ESP32_CODE = `/*
+ * ═══════════════════════════════════════════════════════
  * ESP32 CLAP DETECTION — INMP441 I2S Microphone
- * MedBot Healthcare Delivery Robot
+ * Omnitrix Healthcare Delivery Robot (Stealth Mode)
+ * ═══════════════════════════════════════════════════════
  *
  * Wiring:
- *   INMP441  →  ESP32
- *   WS       →  GPIO 25
- *   SCK      →  GPIO 26
- *   SD       →  GPIO 27
- *   L/R      →  GND
- *   VDD      →  3.3V
+ * INMP441    →  ESP32
+ * ────────────────────
+ * WS         →  GPIO 25
+ * SCK        →  GPIO 26
+ * SD         →  GPIO 27
+ * L/R        →  GND (left channel)
+ * VDD        →  3.3V  (CRITICAL: DO NOT USE 5V)
+ * GND        →  GND
+ *
+ * Output:
+ * Sends '1' via Serial (115200) when clap detected.
+ * All debug text is commented out for final hardware integration.
  */
 
 #include <driver/i2s.h>
@@ -39,17 +47,13 @@ void setupI2S() {
     .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 4,
-    .dma_buf_len = BUFFER_SIZE,
-    .use_apll = false,
-    .tx_desc_auto_clear = false,
-    .fixed_mclk = 0
+    .dma_buf_len = BUFFER_SIZE
   };
 
   const i2s_pin_config_t pin_config = {
-    .bck_io_num   = I2S_SCK,
-    .ws_io_num    = I2S_WS,
-    .data_out_num = I2S_PIN_NO_CHANGE,
-    .data_in_num  = I2S_SD
+    .bck_io_num = I2S_SCK,
+    .ws_io_num  = I2S_WS,
+    .data_in_num = I2S_SD
   };
 
   i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
@@ -60,15 +64,10 @@ void setupI2S() {
 
 int32_t getPeakAmplitude() {
   size_t bytesRead = 0;
-  esp_err_t result = i2s_read(I2S_PORT, (void*)sampleBuffer,
-    sizeof(sampleBuffer), &bytesRead, portMAX_DELAY);
-
-  if (result != ESP_OK || bytesRead == 0) return 0;
-
-  int samplesRead = bytesRead / sizeof(int32_t);
+  i2s_read(I2S_PORT, (void*)sampleBuffer, sizeof(sampleBuffer), &bytesRead, portMAX_DELAY);
+  
   int32_t peak = 0;
-
-  for (int i = 0; i < samplesRead; i++) {
+  for (int i = 0; i < bytesRead / sizeof(int32_t); i++) {
     int32_t sample = abs(sampleBuffer[i] >> 8);
     if (sample > peak) peak = sample;
   }
@@ -78,67 +77,60 @@ int32_t getPeakAmplitude() {
 void setup() {
   Serial.begin(115200);
   setupI2S();
-  Serial.println("[READY] Listening for claps...");
 }
 
 void loop() {
   int32_t amplitude = getPeakAmplitude();
-  // Serial.println(amplitude); // Uncomment for debug
-
+  
   if (amplitude > CLAP_THRESHOLD) {
-    unsigned long now = millis();
-    if (now - lastClapTime > DEBOUNCE_MS) {
-      lastClapTime = now;
-      Serial.println("1");
-      Serial.print("[CLAP] Amplitude: ");
-      Serial.println(amplitude);
+    if (millis() - lastClapTime > DEBOUNCE_MS) {
+      lastClapTime = millis();
+      Serial.print('1');
     }
   }
 }`;
 
 const ARDUINO_CODE = `/*
- * ARDUINO UNO — Line Following Healthcare Robot
- * MedBot: Room Patrol + Clap Request + Pharmacy
- *
- * Flow: START → Room1-5 → PHARMACY
- * At each room: Buzzer → Listen for clap → Record
- * At pharmacy: LED blinks for total requests
+ * ═══════════════════════════════════════════════════════════════
+ * ARDUINO UNO — Line Following Healthcare Delivery Robot
+ * Omnitrix: Room Patrol + Clap Request + Pharmacy Dispensing
+ * ═══════════════════════════════════════════════════════════════
  */
 
-// ═══ CALIBRATION — TUNE THESE ═══
-int baseSpeed      = 150;   // Forward speed (80-255)
-int turnSpeed      = 100;   // Turning speed (60-200)
-int slowSpeed      = 90;    // Near-wall speed (50-120)
-int TURN_DISTANCE  = 15;    // cm — slow down threshold
-int STOP_DISTANCE  = 10;    // cm — stop threshold
-int roomExitTime   = 800;   // ms — clear room marker
-int clapWaitTime   = 5000;  // ms — listen duration
-int buzzerDuration = 2000;  // ms — arrival buzzer
+int baseSpeed      = 150;    
+int turnSpeed      = 100;    
+int slowSpeed      = 90;     
+int TURN_DISTANCE  = 15;     
+int STOP_DISTANCE  = 8;      
+int roomExitTime   = 800;    
+int clapWaitTime   = 5000;   
+int buzzerDuration = 2000;   
 
-// ═══ PINS ═══
-#define IR_LEFT    A0    // Line following
-#define IR_RIGHT   A1    // Line following
-#define IR_SIDE    A2    // Room marker
-#define ENA        5     // Left motor PWM
-#define IN1        2
-#define IN2        3
-#define IN3        4
-#define IN4        7
-#define ENB        6     // Right motor PWM
-#define TRIG_PIN   8
-#define ECHO_PIN   9
-#define BUZZER_PIN 10
-#define LED_RED    11
-#define LED_GREEN  12
-#define LED_BLUE   13
+#define IR_LEFT       12    
+#define IR_RIGHT      13    
+#define IR_SIDE       8     
 
-// ═══ GLOBALS ═══
-int requests[5] = {0, 0, 0, 0, 0};
-int roomCount = 0;
-bool patrolDone = false;
+#define ENA           9     
+#define IN1           4     
+#define IN2           5     
+#define IN3           6     
+#define IN4           7     
+#define ENB           10    
+
+#define TRIG_PIN      A0
+#define ECHO_PIN      A1
+
+#define BUZZER_PIN    2
+
+#define LED_RED       A2
+#define LED_GREEN     A3
+#define LED_BLUE      A4
+
+int requests[5] = {0, 0, 0, 0, 0};  
+int roomCount   = 0;                  
+bool patrolDone = false;              
 int irLeftVal, irRightVal, irSideVal;
 
-// ═══ MOTOR FUNCTIONS ═══
 void setMotorSpeed(int left, int right) {
   analogWrite(ENA, constrain(left, 0, 255));
   analogWrite(ENB, constrain(right, 0, 255));
@@ -168,65 +160,60 @@ void stopMotors() {
   setMotorSpeed(0, 0);
 }
 
-// ═══ ULTRASONIC ═══
 long getDistance() {
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW); delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH); delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
   long dur = pulseIn(ECHO_PIN, HIGH, 30000);
   return dur == 0 ? 999 : dur * 0.034 / 2;
 }
 
-// ═══ IR SENSORS ═══
 void readIRSensors() {
   irLeftVal  = digitalRead(IR_LEFT);
   irRightVal = digitalRead(IR_RIGHT);
   irSideVal  = digitalRead(IR_SIDE);
 }
 
-// ═══ LINE FOLLOWING — STRADDLE ═══
 void followLine() {
   readIRSensors();
   long dist = getDistance();
 
   if (dist < STOP_DISTANCE) {
     stopMotors();
-    ledRed();  // Red LED = obstacle warning
-    while (getDistance() < STOP_DISTANCE) delay(100);
-    ledOff();
-    delay(200);
+    while (getDistance() < STOP_DISTANCE) { delay(100); }
+    delay(200); 
     return;
   }
 
-  int spd = dist < TURN_DISTANCE ? slowSpeed : baseSpeed;
+  int spd = (dist < TURN_DISTANCE) ? slowSpeed : baseSpeed;
 
-  if (irLeftVal == HIGH && irRightVal == HIGH) moveForward(spd);
-  else if (irLeftVal == LOW) turnLeft(turnSpeed);
-  else if (irRightVal == LOW) turnRight(turnSpeed);
-  else moveForward(slowSpeed);
+  if (irLeftVal == HIGH && irRightVal == HIGH) { moveForward(spd); }
+  else if (irLeftVal == LOW && irRightVal == HIGH) { turnLeft(turnSpeed); }
+  else if (irLeftVal == HIGH && irRightVal == LOW) { turnRight(turnSpeed); }
+  else { moveForward(slowSpeed); }
 }
 
-// ═══ LED & BUZZER ═══
-void ledOff()   { digitalWrite(LED_RED,LOW);   digitalWrite(LED_GREEN,LOW); digitalWrite(LED_BLUE,LOW); }
+void buzzerOn()  { digitalWrite(BUZZER_PIN, LOW); }
+void buzzerOff() { digitalWrite(BUZZER_PIN, HIGH); }
+void buzzerBeep(int dur) { buzzerOn(); delay(dur); buzzerOff(); }
+
+void ledOff()   { digitalWrite(LED_RED,LOW); digitalWrite(LED_GREEN,LOW); digitalWrite(LED_BLUE,LOW); }
 void ledGreen() { ledOff(); digitalWrite(LED_GREEN, HIGH); }
 void ledRed()   { ledOff(); digitalWrite(LED_RED, HIGH); }
 void ledBlue()  { ledOff(); digitalWrite(LED_BLUE, HIGH); }
-void buzzerBeep(int dur) { digitalWrite(BUZZER_PIN,HIGH); delay(dur); digitalWrite(BUZZER_PIN,LOW); }
 
-// ═══ CLAP DETECTION ═══
 bool listenForClap() {
-  while (Serial.available()) Serial.read();
+  while (Serial.available()) { Serial.read(); }
   unsigned long start = millis();
   while (millis() - start < (unsigned long)clapWaitTime) {
-    if (Serial.available() && Serial.read() == '1') return true;
+    if (Serial.available()) {
+      if (Serial.read() == '1') return true;
+    }
     delay(10);
   }
   return false;
 }
 
-// ═══ ROOM HANDLING ═══
 void handleRoom() {
   stopMotors(); delay(300);
   buzzerBeep(buzzerDuration); delay(300);
@@ -241,17 +228,17 @@ void handleRoom() {
   moveForward(baseSpeed); delay(roomExitTime);
 }
 
-// ═══ PHARMACY ═══
 void handlePharmacy() {
   stopMotors(); delay(500);
-
   for (int i = 0; i < 5; i++) { buzzerBeep(300); delay(200); }
   delay(500);
 
   int total = 0;
+  for (int i = 0; i < 5; i++) { total += requests[i]; }
+
   for (int i = 0; i < 5; i++) {
-    total += requests[i];
-    requests[i] == 1 ? ledGreen() : ledRed();
+    if (requests[i] == 1) { ledGreen(); buzzerBeep(100); }
+    else { ledRed(); }
     delay(1500); ledOff(); delay(300);
   }
 
@@ -259,22 +246,24 @@ void handlePharmacy() {
     ledGreen(); buzzerBeep(400); delay(400); ledOff(); delay(300);
   }
 
+  ledBlue(); delay(2000); ledOff();
   patrolDone = true;
 }
 
-// ═══ SETUP ═══
 void setup() {
   Serial.begin(115200);
-  int pins[] = {IR_LEFT,IR_RIGHT,IR_SIDE};
-  for (int p : pins) pinMode(p, INPUT);
-  int outs[] = {ENA,IN1,IN2,IN3,IN4,ENB,TRIG_PIN,BUZZER_PIN,LED_RED,LED_GREEN,LED_BLUE};
-  for (int p : outs) pinMode(p, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
+  pinMode(IR_LEFT, INPUT); pinMode(IR_RIGHT, INPUT); pinMode(IR_SIDE, INPUT);
+  pinMode(ENA, OUTPUT); pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT); pinMode(ENB, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT); pinMode(ECHO_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, HIGH);
+  pinMode(LED_RED, OUTPUT); pinMode(LED_GREEN, OUTPUT); pinMode(LED_BLUE, OUTPUT);
+  ledOff();
   ledGreen(); buzzerBeep(500); delay(500); ledOff();
   delay(1000);
 }
 
-// ═══ MAIN LOOP ═══
 void loop() {
   if (patrolDone) { stopMotors(); delay(5000); return; }
   readIRSensors();
@@ -300,7 +289,7 @@ const CONFIG_DATA = {
     { name: "turnSpeed", value: "100", range: "60–200", desc: "Turning correction speed" },
     { name: "slowSpeed", value: "90", range: "50–120", desc: "Near-wall speed" },
     { name: "TURN_DISTANCE", value: "15", range: "10–20 cm", desc: "Slow down threshold" },
-    { name: "STOP_DISTANCE", value: "10", range: "5–15 cm", desc: "Obstacle stop threshold (object < 10cm = stop)" },
+    { name: "STOP_DISTANCE", value: "8", range: "5–15 cm", desc: "Obstacle stop threshold" },
     { name: "roomExitTime", value: "800", range: "600–1200 ms", desc: "Drive time to clear marker" },
     { name: "clapWaitTime", value: "5000", range: "3000–8000 ms", desc: "Listen duration for clap" },
   ],
